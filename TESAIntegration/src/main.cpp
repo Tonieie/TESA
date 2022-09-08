@@ -1,6 +1,11 @@
 #include <Arduino.h>
 #include <M5StickCPlus.h>
-#include "Filters.h"
+#include <Adafruit_ADS1X15.h>
+#include <Adafruit_PWMServoDriver.h>
+#include <Filters.h>
+#include "MQTT.h"
+
+MQTT mqtt;
 
 class IMUFilter
 {
@@ -47,15 +52,15 @@ void setup() {
     M5.Imu.Init();          // Init IMU.  初始化IMU
     M5.Imu.SetGyroFsr(M5.Imu.GFS_1000DPS);
     M5.Imu.SetAccelFsr(M5.Imu.AFS_2G);
-    M5.Lcd.setRotation(3);  // Rotate the screen. 将屏幕旋转
-    M5.Lcd.fillScreen(BLACK);
-    M5.Lcd.setTextSize(1);
-    M5.Lcd.setCursor(80, 15);  // set the cursor location.  设置光标位置
-    M5.Lcd.println("IMU TEST");
-    M5.Lcd.setCursor(30, 30);
-    M5.Lcd.println("  X       Y       Z");
-    M5.Lcd.setCursor(30, 70);
-    M5.Lcd.println("  Pitch   Roll    Yaw");
+    // M5.Lcd.setRotation(3);  // Rotate the screen. 将屏幕旋转
+    // M5.Lcd.fillScreen(BLACK);
+    // M5.Lcd.setTextSize(1);
+    // M5.Lcd.setCursor(80, 15);  // set the cursor location.  设置光标位置
+    // M5.Lcd.println("IMU TEST");
+    // M5.Lcd.setCursor(30, 30);
+    // M5.Lcd.println("  X       Y       Z");
+    // M5.Lcd.setCursor(30, 70);
+    // M5.Lcd.println("  Pitch   Roll    Yaw");
 
     for(uint8_t i=0; i < 50; i++)
     {
@@ -70,19 +75,27 @@ void setup() {
 	gx.offset /= 50.0f;
 	gy.offset /= 50.0f;
 	gz.offset /= 50.0f;
+
+	mqtt.begin();
 }
 
 void loop() {
 
     // static uint32_t count=0;
     static uint32_t last_loop = millis();
-    if(millis() - last_loop > 10)
+    if(millis() - last_loop > 20)
     {
 		last_loop = millis();
 
 		M5.Imu.getGyroData(&gx.raw, &gy.raw, &gz.raw);
 		M5.Imu.getAccelData(&ax.raw, &ay.raw, &az.raw);
 		updateIMUFilter();
+
+		char msg[100];
+		sprintf(msg,"{\"gx\":%2.6f,\"gy\":%2.6f,\"gz\":%2.6f}",gx.filtered,gy.filtered,gz.filtered);
+		mqtt.publish(0,msg);
+		sprintf(msg,"{\"x\":%2.6f,\"y\":%2.6f,\"z\":%2.6f}",ax.filtered,ay.filtered,az.filtered);
+		mqtt.publish(1,msg);
     }
 
 }
